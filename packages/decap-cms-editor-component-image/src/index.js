@@ -8,16 +8,64 @@ const image = {
       image: match[2],
       alt: match[1],
       title: match[4],
+      width: match[6],
     },
-  toBlock: ({ alt, image, title }) =>
-    `![${alt || ''}](${image || ''}${title ? ` "${title.replace(/"/g, '\\"')}"` : ''})`,
+  toBlock: (obj) => {
+    // Handle both Immutable and plain objects
+    const getValue = (key) => {
+      if (obj && obj.get && typeof obj.get === 'function') {
+        return obj.get(key);
+      }
+      return obj && obj[key] ? obj[key] : '';
+    };
+    
+    const alt = getValue('alt') || '';
+    const image = getValue('image') || '';
+    const title = getValue('title');
+    const width = getValue('width');
+    
+    let markdown = `![${alt}](${image}`;
+    if (title) {
+      markdown += ` "${title.replace(/"/g, '\\"')}"`;
+    }
+    markdown += ')';
+    
+    if (width) {
+      markdown += `{ width=${width} }`;
+    }
+    
+    return markdown;
+  },
   // eslint-disable-next-line react/display-name
-  toPreview: ({ alt, image, title }, getAsset, fields) => {
+  toPreview: (props, getAsset, fields) => {
+    const getValue = (key) => {
+      if (props && props.get && typeof props.get === 'function') {
+        return props.get(key);
+      }
+      return props && props[key] ? props[key] : '';
+    };
+    
+    const image = getValue('image');
+    const alt = getValue('alt') || '';
+    const title = getValue('title') || '';
+    const width = getValue('width');
+    
     const imageField = fields?.find(f => f.get('widget') === 'image');
     const src = getAsset(image, imageField);
-    return <img src={src || ''} alt={alt || ''} title={title || ''} />;
+    
+    const imgProps = {
+      src: src || '',
+      alt: alt,
+      title: title,
+    };
+    
+    if (width) {
+      imgProps.style = { width };
+    }
+    
+    return <img {...imgProps} />;
   },
-  pattern: /^!\[(.*)\]\((.*?)(\s"(.*)")?\)/,
+  pattern: /^!\[(.*)\]\((.*?)(\s"(.*)")?\)(\s*\{\s*width=([^}]+)\s*\})?/,
   fields: [
     {
       label: 'Image',
@@ -34,6 +82,12 @@ const image = {
     {
       label: 'Title',
       name: 'title',
+    },
+    {
+      label: 'Width',
+      name: 'width',
+      widget: 'string',
+      hint: 'CSS width value (e.g., 300px, 50%, auto)',
     },
   ],
 };
